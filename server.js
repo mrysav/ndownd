@@ -3,6 +3,7 @@ var path = require("path");
 var bodyParser = require("body-parser");
 var redis = require("redis");
 var fs = require("fs");
+var http = require('https');
 var listener = redis.createClient();
 var notifier = redis.createClient();
 
@@ -19,10 +20,25 @@ function handleError(res, reason, message, code) {
     res.status(code || 500).json({"error": (message || reason)});
 }
 
+// Shamelessly copied from
+// http://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+var download = function(url, dest, cb) {
+  var file = fs.createWriteStream(dest);
+  var request = http.get(url, function(response) {
+    response.pipe(file);
+    file.on('finish', function() {
+      file.close(cb);  // close() is async, call cb after close completes.
+    });
+  }).on('error', function(err) { // Handle errors
+    fs.unlink(dest); // Delete the file async. (But we don't check the result)
+    if (cb) cb(err.message);
+  });
+};
+
 app.get("/downloads", function(req, res) {
     var flist = fs.readdirSync(DOWNLOADS_DIRECTORY);
     var files = flist.filter(function(f) {
-        return fs.statSync(DOWNLOADS_DIRECTORY + f).isFile()
+        return fs.statSync(DOWNLOADS_DIRECTORY + f).isFile() && !f.startsWith('.');
     });
     res.status(200).json(files);
 });
@@ -46,6 +62,14 @@ var server = app.listen(process.env.PORT || 8080, function () {
 // Worker for processing downloads
 listener.on("message", function (channel, message) {
     // download file indicated by 'message' url here
-    console.log("INFO: Download request received for " + message.split('/').pop());
+    var filename = message.split('/').pop();
+    console.log("INFO: Download request received for " + filename);
+    download(message, DOWNLOADS_DIRECTORY + filename, function(e) {
+        if(e) {
+            console.log("ERROR: " + e)
+        } else {
+            console.log("INFO: Download for " + filename + " finished.");
+        }
+    });
 });
 listener.subscribe("downloads");
