@@ -1,0 +1,17 @@
+{
+    "name": "ndownd",
+    "version": "1.0.0",
+    "description": "A simple web app that allows you to manage downloads.",
+    "license": "MIT",
+    "repository": "http://github.com/mrysav/ndownd",
+    "main": "server.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "body-parser": "^1.15.2",
+        "express": "^4.14",
+        "redis": "^2.6.2"
+    }
+}
